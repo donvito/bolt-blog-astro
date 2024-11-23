@@ -1,0 +1,61 @@
+---
+---
+
+<div class="relative w-full sm:w-64">
+  <input
+    type="text"
+    id="search"
+    placeholder="Search posts..."
+    class="w-full px-4 py-2 rounded-full bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-accent-light dark:focus:ring-accent-dark"
+  />
+  <div
+    id="searchResults"
+    class="absolute left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hidden z-50"
+  >
+  </div>
+</div>
+
+<script>
+  import Fuse from 'fuse.js';
+
+  const posts = await fetch('/search.json').then(res => res.json());
+  const fuse = new Fuse(posts, {
+    keys: ['title', 'description'],
+    threshold: 0.3,
+  });
+
+  const input = document.getElementById('search');
+  const resultsContainer = document.getElementById('searchResults');
+
+  input?.addEventListener('input', (e) => {
+    const target = e.target as HTMLInputElement;
+    const results = fuse.search(target.value);
+    
+    if (target.value.length === 0) {
+      resultsContainer?.classList.add('hidden');
+      return;
+    }
+
+    resultsContainer?.classList.remove('hidden');
+    resultsContainer!.innerHTML = results
+      .slice(0, 5)
+      .map(
+        ({ item }) => `
+          <a
+            href="/blog/${item.slug}"
+            class="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+          >
+            ${item.title}
+          </a>
+        `
+      )
+      .join('');
+  });
+
+  // Hide results when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!input?.contains(e.target as Node)) {
+      resultsContainer?.classList.add('hidden');
+    }
+  });
+</script>

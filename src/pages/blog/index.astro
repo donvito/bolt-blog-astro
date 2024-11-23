@@ -1,0 +1,209 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import { getCollection } from 'astro:content';
+
+const posts = await getCollection('blog');
+const sortedPosts = posts.sort((a, b) => b.data.pubDate.valueOf() - a.data.pubDate.valueOf());
+
+// Get unique tags
+const allTags = [...new Set(posts.flatMap(post => post.data.tags))].sort();
+---
+
+<Layout title="Blog Posts">
+  <div class="max-w-3xl mx-auto px-4">
+    <h1 class="text-2xl sm:text-3xl font-bold mb-4">All Blog Posts</h1>
+    
+    <!-- Tags Filter -->
+    <div class="mb-8 overflow-x-auto -mx-4 px-4 pb-3">
+      <h2 class="text-lg font-semibold mb-2">Filter by tag:</h2>
+      <div class="flex flex-nowrap sm:flex-wrap gap-2 min-w-max sm:min-w-0" id="tagFilters">
+        <button
+          class="tag-filter active shrink-0 px-3 py-1.5 text-sm font-medium rounded-full bg-accent-light/10 dark:bg-accent-dark/10 text-accent-light dark:text-accent-dark hover:bg-accent-light/20 dark:hover:bg-accent-dark/20 transition-colors cursor-pointer"
+          data-tag="all"
+        >
+          All
+        </button>
+        {allTags.map((tag) => (
+          <button
+            class="tag-filter shrink-0 px-3 py-1.5 text-sm font-medium rounded-full bg-accent-light/10 dark:bg-accent-dark/10 text-accent-light dark:text-accent-dark hover:bg-accent-light/20 dark:hover:bg-accent-dark/20 transition-colors cursor-pointer"
+            data-tag={tag}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="space-y-8 sm:space-y-12" id="postsContainer">
+      {
+        sortedPosts.map((post) => (
+          <article class="post-item flex flex-col md:flex-row gap-4 md:gap-8" data-tags={JSON.stringify(post.data.tags)}>
+            <div class="md:w-1/3">
+              <a href={`/blog/${post.slug}`} class="block hover:opacity-90 transition-opacity">
+                <img
+                  src={post.data.image}
+                  alt={post.data.title}
+                  class="w-full aspect-video object-cover rounded-lg"
+                />
+              </a>
+            </div>
+            <div class="md:w-2/3">
+              <div class="flex flex-wrap items-center gap-2 text-sm mb-2">
+                <time class="text-gray-600 dark:text-gray-400">
+                  {post.data.pubDate.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </time>
+                <span class="text-gray-400">•</span>
+                <div class="flex flex-wrap gap-2">
+                  {post.data.tags.map((tag) => (
+                    <button
+                      class="tag-link shrink-0 inline-block px-2 py-1 text-xs font-medium rounded-full bg-accent-light/10 dark:bg-accent-dark/10 text-accent-light dark:text-accent-dark hover:bg-accent-light/20 dark:hover:bg-accent-dark/20 transition-colors whitespace-nowrap cursor-pointer"
+                      data-tag={tag}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <h2 class="text-xl font-bold mb-2">
+                <a href={`/blog/${post.slug}`} class="hover:text-accent-light dark:hover:text-accent-dark">
+                  {post.data.title}
+                </a>
+              </h2>
+              <p class="text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 sm:line-clamp-3">
+                {post.data.description}
+              </p>
+              <a
+                href={`/blog/${post.slug}`}
+                class="text-accent-light dark:text-accent-dark hover:underline inline-flex items-center"
+              >
+                Read more <span class="ml-1">→</span>
+              </a>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</Layout>
+
+<style>
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .overflow-x-auto {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+</style>
+
+<script>
+  let touchStartX = 0;
+  let touchStartY = 0;
+  const touchThreshold = 10; // pixels to determine if it's a scroll or tap
+
+  function initializeTagFilters() {
+    const tagFilters = document.querySelectorAll('.tag-filter');
+    const tagLinks = document.querySelectorAll('.tag-link');
+    const posts = document.querySelectorAll('.post-item');
+    const filterContainer = document.getElementById('tagFilters');
+
+    function filterPosts(selectedTag) {
+      posts.forEach(post => {
+        const postTags = JSON.parse(post.getAttribute('data-tags') || '[]');
+        if (selectedTag === 'all' || postTags.includes(selectedTag)) {
+          post.style.display = '';
+        } else {
+          post.style.display = 'none';
+        }
+      });
+
+      // Update active state of filter buttons
+      tagFilters.forEach(filter => {
+        if (filter.getAttribute('data-tag') === selectedTag) {
+          filter.classList.add('active', 'bg-accent-light', 'dark:bg-accent-dark', 'text-white');
+          filter.classList.remove('bg-accent-light/10', 'dark:bg-accent-dark/10', 'text-accent-light', 'dark:text-accent-dark');
+          
+          // Ensure the selected filter is visible
+          if (window.innerWidth < 640) {
+            filter.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        } else {
+          filter.classList.remove('active', 'bg-accent-light', 'dark:bg-accent-dark', 'text-white');
+          filter.classList.add('bg-accent-light/10', 'dark:bg-accent-dark/10', 'text-accent-light', 'dark:text-accent-dark');
+        }
+      });
+    }
+
+    // Handle tag filter clicks
+    function handleTagFilter(element) {
+      const tag = element.getAttribute('data-tag');
+      filterPosts(tag);
+      
+      // Scroll to top of posts section on mobile
+      if (window.innerWidth < 640) {
+        document.getElementById('tagFilters')?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    // Add click events
+    tagFilters.forEach(filter => {
+      filter.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleTagFilter(filter);
+      });
+    });
+
+    tagLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleTagFilter(link);
+      });
+    });
+
+    // Add touch events with improved handling
+    const addTouchHandlers = (element) => {
+      element.addEventListener('touchstart', (e) => {
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+      }, { passive: true });
+
+      element.addEventListener('touchend', (e) => {
+        const touchEndX = e.changedTouches[0].clientX;
+        const touchEndY = e.changedTouches[0].clientY;
+        
+        const deltaX = Math.abs(touchEndX - touchStartX);
+        const deltaY = Math.abs(touchEndY - touchStartY);
+
+        // Only trigger if it's a tap (minimal movement)
+        if (deltaX < touchThreshold && deltaY < touchThreshold) {
+          e.preventDefault();
+          handleTagFilter(element);
+        }
+      });
+    };
+
+    // Add touch handlers to all interactive elements
+    tagFilters.forEach(addTouchHandlers);
+    tagLinks.forEach(addTouchHandlers);
+
+    // Handle hash in URL for direct tag filtering
+    const hash = window.location.hash.slice(1);
+    if (hash && allTags.includes(hash)) {
+      filterPosts(hash);
+    }
+  }
+
+  // Initialize when the DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeTagFilters);
+  } else {
+    initializeTagFilters();
+  }
+</script>
